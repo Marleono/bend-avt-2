@@ -9,42 +9,32 @@ const { MongoClient } = require("mongodb");
 const url = "mongodb://127.0.0.1:27017/";
 const mongoClient = new MongoClient(url);
 
-let count = 0;
+// Запускаем сервер
+const server = http.createServer(async (req, res) => {
+  // Извлечь из URL параметр collection (например, /?collection=users)
+  const urlParams = new URL(req.url, `http://${req.headers.host}`);
+  const collectionName = urlParams.searchParams.get('collection') || 'users';
 
-async function run() {
   try {
-    // Подключаемся к серверу
     await mongoClient.connect();
+    const db = mongoClient.db('test1');
 
-    // обращаемся к базе данных
-    const db = mongoClient.db("test1");
+    // Проверяем коллекцию
+    const collection = db.collection(collectionName);
+    const count = await collection.countDocuments();
 
-    // выполняем пинг для проверки подключения
-    const result = await db.command({ ping: 1 });
-    console.log("Подключение с сервером успешно установлено");
-
-    const collection = db.collection("users");
-    count = await collection.countDocuments();
-    console.log(`В коллекции users ${count} документа/ов`);
-    console.log(result);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(`Hello ${name}, in collection "${collectionName}" you have ${count} documents.`);
   } catch (err) {
-    console.log("Возникла ошибка");
-    console.log(err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end('Ошибка при работе с базой данных:\n' + err.message);
   } finally {
     await mongoClient.close();
-    console.log("Подключение закрыто");
-
-    // Запускаем сервер после получения count
-    const server = http.createServer((req, res) => {
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'text/plain');
-      res.end(`Hello ${name}, you have ${count} documents`);
-    });
-
-    server.listen(port, hostname, () => {
-      console.log(`Server running at http://${hostname}:${port}/`);
-    });
   }
-}
+});
 
-run().catch(console.error);
+server.listen(port, hostname, () => {
+  console.log(`Server running at http://${hostname}:${port}/`);
+});
